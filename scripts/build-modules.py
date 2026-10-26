@@ -99,8 +99,12 @@ if map_init in body:
     body = body.replace(
         map_init,
         "let mapEl, mctx, MS=220;\nexport function initMinimap(){\n"
-        + map_init.replace("const mapEl", "mapEl").replace("const mctx", "mctx").replace("const MS", "MS")
-        + "}\n",
+        "  mapEl=document.getElementById('map'); mctx=mapEl.getContext('2d'); MS=220;\n"
+        "  const dpr=window.devicePixelRatio||1;\n"
+        "  mapEl.width=MS*dpr; mapEl.height=MS*dpr;\n"
+        "  mapEl.style.width=MS+'px'; mapEl.style.height=MS+'px';\n"
+        "  mctx.setTransform(1,0,0,1,0,0); mctx.scale(dpr,dpr);\n"
+        "}\n",
         1,
     )
 

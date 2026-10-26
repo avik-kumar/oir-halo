@@ -291,8 +291,16 @@ function setTrack(t, label){
 // ---- minimap (north up) ----
 let mapEl, mctx, MS=220;
 export function initMinimap(){
-mapEl=document.getElementById('map'), mctx=mapEl.getContext('2d'), MS=220, dpr=window.devicePixelRatio||1;
-mapEl.width=MS*dpr; mapEl.height=MS*dpr; mapEl.style.width=MS+'px'; mapEl.style.height=MS+'px'; mctx.scale(dpr,dpr);
+  mapEl = document.getElementById('map');
+  mctx = mapEl.getContext('2d');
+  MS = 220;
+  const dpr = window.devicePixelRatio || 1;
+  mapEl.width = MS * dpr;
+  mapEl.height = MS * dpr;
+  mapEl.style.width = MS + 'px';
+  mapEl.style.height = MS + 'px';
+  mctx.setTransform(1, 0, 0, 1, 0, 0);
+  mctx.scale(dpr, dpr);
 }
 export let mapT=null;
 function buildMap(){
