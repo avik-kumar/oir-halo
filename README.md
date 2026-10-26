@@ -29,10 +29,22 @@ PowerShell: `.\scripts\serve.ps1`
 ## GitHub Pages
 
 1. Push **this folder’s contents** as the repo root (`index.html` at top level).
-2. **Settings → Pages → Build and deployment → Source:** GitHub Actions.
-3. On push to `main` / `master`, the workflow `.github/workflows/pages.yml` deploys the site.
+2. **Settings → Pages → Build and deployment → Source:** choose **GitHub Actions** (not “Deploy from a branch”). Save if prompted.
+3. Push to `main` / `master`, or run **Actions → Deploy GitHub Pages → Run workflow**.
 
-Site URL: `https://<user>.github.io/<repo>/` — paths like `js/main.js` and `data/track.csv` are relative to that root.
+Site URL: `https://<user>.github.io/<repo>/`
+
+### Deploy failed with `404` / “Failed to create deployment”
+
+That almost always means **Pages is not fully enabled** for the repo yet (the artifact upload can still succeed).
+
+1. Open **Settings → Pages** for the repo.
+2. Under **Build and deployment**, set **Source** to **GitHub Actions** and save.
+3. If **Source** was “Deploy from a branch”, switch to **GitHub Actions**, save, wait a minute, then **re-run** the failed workflow (or push an empty commit).
+4. Repo must be **public**, or **private with GitHub Pro/Team** and Pages enabled for private repos.
+5. For org-owned repos, an org admin may need to allow **Pages** under organization settings.
+
+After a successful run, the Pages URL appears at the top of **Settings → Pages**.
 
 ## Track CSV
 
