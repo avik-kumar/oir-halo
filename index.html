@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>FSGP 2027 Halo V1 – Track Sim</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Browser minisim for FSGP 2027 Halo V1 solar car on Ozark International Raceway.">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div id="dash"></div>
+  <div id="hud">
+    <div id="speed">0 mph</div>
+    <div id="subtitle">FSGP 2027 Halo V1</div>
+    <div id="laps"></div>
+  </div>
+  <div id="help">
+    <div class="help-title">Controls</div>
+    <div class="row"><kbd>↑</kbd><kbd>↓</kbd> throttle / brake · <kbd>←</kbd><kbd>→</kbd> steer</div>
+    <div class="row"><kbd>C</kbd> camera · <kbd>T</kbd> map / tuning · <kbd>R</kbd> reset car</div>
+    <div class="row">Drop a CSV on the page to load another track</div>
+  </div>
+  <div id="tune">
+    <div id="thead"><b>Halo V1 tuning</b><button id="tclose" title="Close (T)">✕</button></div>
+    <div id="tbody">
+      <div id="sliders"></div>
+      <button id="resetp" type="button">Reset defaults</button>
+      <button id="resetb" type="button">Reset laps &amp; battery</button>
+      <div style="margin-top:6px;opacity:.8" id="tinfo"></div>
+    </div>
+  </div>
+  <div id="mapwrap">
+    <div id="maptitle">Track map</div>
+    <canvas id="map"></canvas>
+    <button id="topen" type="button" title="Open tuning (T)">⚙ Tuning</button>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

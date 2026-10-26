@@ -1,0 +1,12 @@
+{
+  "name": "fsgp-halo-track-sim",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "FSGP 2027 Halo V1 browser track minisim (GitHub Pages static site)",
+  "scripts": {
+    "serve": "npx --yes serve . -l 8080",
+    "preview": "npm run serve",
+    "build:js": "python scripts/extract-js.py && python scripts/build-modules.py"
+  }
+}
