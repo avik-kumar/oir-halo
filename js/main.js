@@ -1,4 +1,5 @@
-import { TRACK_CSV, TRACK_LABEL_DEFAULT } from './config.js';
+import { initMode, showLanding } from './mode.js';
+import { loadTrackById } from './tracks.js';
 
 function showBootError(err) {
   console.error(err);
@@ -12,35 +13,29 @@ function showBootError(err) {
 async function boot() {
   const sim = await import('./sim.js');
   const {
-    parseCSV,
-    loadRaw,
     mockOval,
     setTrack,
     initMinimap,
     bindUI,
-    setTune,
     frame,
   } = sim;
 
-  async function loadDefaultTrack() {
+  initMinimap();
+  bindUI();
+
+  try {
+    await loadTrackById('ozark', sim);
+  } catch (err) {
+    console.error(err);
     try {
-      const res = await fetch(TRACK_CSV);
-      if (!res.ok) throw new Error(`Failed to load ${TRACK_CSV} (${res.status})`);
-      loadRaw(parseCSV(await res.text()), TRACK_LABEL_DEFAULT);
-    } catch (err) {
-      console.error(err);
-      try {
-        setTrack(mockOval(), 'Mock oval (track failed to load)');
-      } catch (e2) {
-        throw e2;
-      }
+      setTrack(mockOval(), 'Mock oval (track failed to load)');
+    } catch (e2) {
+      throw e2;
     }
   }
 
-  initMinimap();
-  bindUI();
-  setTune(false);
-  await loadDefaultTrack();
+  initMode(sim);
+  showLanding();
   requestAnimationFrame(frame);
 }
 

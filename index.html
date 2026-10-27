@@ -2,37 +2,110 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>FSGP 2027 Halo V1 – Track Sim</title>
+  <title>Halo — FSGP 2027</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Browser minisim for FSGP 2027 Halo V1 solar car on Ozark International Raceway.">
+  <meta name="description" content="Georgia Tech Solar Racing — Halo at Ozark International Raceway for FSGP 2027. Practice and race in the browser.">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+  <div id="landing">
+    <div class="landing-card">
+      <div class="landing-brand">GTSR</div>
+      <h1>Halo — FSGP 2027</h1>
+      <div class="landing-sub-row">
+        <p class="landing-sub">Ozark International Raceway Sim</p>
+        <span class="info-tip" tabindex="0" aria-label="About this sim">
+          <span class="info-tip-icon" aria-hidden="true">i</span>
+          <span class="info-tip-pop" role="tooltip">
+            <strong>Welcome to the FSGP 2027 sim for Halo</strong> — Georgia Tech Solar Racing’s car.
+            <br><br>
+            <strong>Practice</strong> on Ozark International Raceway to learn the circuit and feel the car.
+            You can also tweak <strong>experimental</strong> tunable car parameters (mass, motors, grip, and more) while you explore.
+            <br><br>
+            <strong>Race</strong> is cockpit-style: put down clean laps and climb the boards.
+            Chase <strong>Pace</strong> (fastest lap) or <strong>Efficiency</strong> (lowest energy) — each has its own leaderboard!
+            <br><br>
+            Per FSGP rules: efficiency runs need an average over <strong>35 mph</strong>, and you can’t go <strong>65 mph</strong> or faster on a valid lap. Stay on track and have fun.
+          </span>
+        </span>
+      </div>
+      <div id="landing-actions" class="landing-actions">
+        <button type="button" id="btn-practice" class="btn primary">Practice</button>
+        <button type="button" id="btn-race" class="btn accent">Race</button>
+        <button type="button" id="btn-boards" class="btn ghost">Leaderboards</button>
+      </div>
+      <div id="race-lobby" class="race-lobby" style="display:none">
+        <label class="field">Username
+          <input id="race-username" type="text" maxlength="64" placeholder="your name" autocomplete="username">
+        </label>
+        <div class="landing-actions">
+          <button type="button" id="btn-race-go" class="btn accent">Start race</button>
+          <button type="button" id="btn-race-cancel" class="btn ghost">Back</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="boards" style="display:none">
+    <div class="boards-card">
+      <div class="boards-head">
+        <h2>Leaderboards</h2>
+        <button type="button" id="btn-boards-close" class="btn ghost">Close</button>
+      </div>
+      <div class="boards-tabs">
+        <button type="button" id="boards-tab-pace" class="btn ghost active">Pace</button>
+        <button type="button" id="boards-tab-eff" class="btn ghost">Efficiency</button>
+        <button type="button" id="boards-refresh" class="btn icon-btn" title="Refresh" aria-label="Refresh">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12a9 9 0 0 0-15.5-6.4"/>
+            <polyline points="3 4 3 9 8 9"/>
+            <path d="M3 12a9 9 0 0 0 15.5 6.4"/>
+            <polyline points="21 20 21 15 16 15"/>
+          </svg>
+        </button>
+      </div>
+      <p class="muted">Ozark · best valid lap per name. Efficiency requires ≥35 mph average.</p>
+      <div id="boards-body"></div>
+    </div>
+  </div>
+
+  <button type="button" id="btn-exit-mode" class="btn exit-mode" style="display:none">← Menu</button>
+
   <div id="dash"></div>
-  <div id="hud">
+  <div id="hud" style="display:none">
     <div id="speed">0 mph</div>
-    <div id="subtitle">FSGP 2027 Halo V1</div>
+    <div id="subtitle">Halo · Ozark · FSGP 2027</div>
     <div id="laps"></div>
   </div>
-  <div id="help">
+  <div id="help" style="display:none">
     <div class="help-title">Controls</div>
     <div class="row"><kbd>↑</kbd><kbd>↓</kbd> throttle / brake · <kbd>←</kbd><kbd>→</kbd> steer</div>
-    <div class="row"><kbd>C</kbd> camera · <kbd>T</kbd> map / tuning · <kbd>R</kbd> reset car</div>
-    <div class="row">Drop a CSV on the page to load another track</div>
+    <div class="row"><kbd>C</kbd> camera · <kbd>T</kbd> map / tuning · <kbd>R</kbd> reset current lap</div>
+    <div class="row">Lift throttle = regen · friction brake dumps heat</div>
   </div>
-  <div id="tune">
-    <div id="thead"><b>Halo V1 tuning</b><button id="tclose" title="Close (T)">✕</button></div>
+  <div id="tune" style="display:none">
+    <div id="thead"><b>Halo V1 tuning</b><button id="tclose" type="button" title="Close (T)">✕</button></div>
     <div id="tbody">
       <div id="sliders"></div>
       <button id="resetp" type="button">Reset defaults</button>
-      <button id="resetb" type="button">Reset laps &amp; battery</button>
+      <button id="resetb" type="button">Reset current lap &amp; battery</button>
       <div style="margin-top:6px;opacity:.8" id="tinfo"></div>
     </div>
   </div>
-  <div id="mapwrap">
+  <div id="mapwrap" style="display:none">
     <div id="maptitle">Track map</div>
     <canvas id="map"></canvas>
     <button id="topen" type="button" title="Open tuning (T)">⚙ Tuning</button>
+  </div>
+
+  <div id="race-finish" style="display:none">
+    <div class="race-finish-card">
+      <h2 id="race-finish-title">Save laps &amp; quit</h2>
+      <div id="race-finish-msg"></div>
+      <div class="landing-actions">
+        <button type="button" id="btn-race-return" class="btn accent">Return to menu</button>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="js/main.js"></script>
