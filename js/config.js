@@ -6,7 +6,7 @@ export const TRACK_WIDTH = 12;
 export const RULES_MAX_MPH = 65;
 export const EFF_MIN_AVG_MPH = 35;
 export const G = 9.8;
-export const SIM_VERSION = '1.1.0';
+export const SIM_VERSION = '1.2.0';
 export const PACK_ID = 'halo-v1-r1';
 
 export const CAR = {

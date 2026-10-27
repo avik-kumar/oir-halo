@@ -2,6 +2,8 @@
 
 Browser minisim for **Halo** (Georgia Tech Solar Racing) at Ozark International Raceway — FSGP 2027. Static HTML/JS/Three.js; no build step required for day-to-day use.
 
+See **[CHANGELOG.md](CHANGELOG.md)** for release notes.
+
 ## What you can do
 
 | | **Practice** | **Race** |

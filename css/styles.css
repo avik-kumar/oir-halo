@@ -52,7 +52,12 @@ html,body{margin:0;height:100%;overflow:hidden;background:#9cc4e4;font-family:sy
 }
 .info-tip-pop strong{font-weight:600}
 .info-tip:hover .info-tip-pop,.info-tip:focus-within .info-tip-pop{display:block}
-.landing-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.landing-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px}
+.landing-changelog{
+  margin-left:auto;font-size:12px;opacity:.65;color:rgba(255,255,255,.9);
+  text-decoration:none;border-bottom:1px solid rgba(255,255,255,.25);padding:2px 0;
+}
+.landing-changelog:hover{opacity:1;border-bottom-color:rgba(255,255,255,.55)}
 .btn{cursor:pointer;border-radius:8px;padding:10px 14px;font-size:14px;border:1px solid rgba(255,255,255,.2);color:#fff;background:rgba(255,255,255,.1)}
 .btn:hover{background:rgba(255,255,255,.18)}
 .btn.primary{background:rgba(70,120,200,.55);border-color:rgba(120,170,255,.45)}

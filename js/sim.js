@@ -579,7 +579,7 @@ document.getElementById('resetb').onclick=e=>{ resetCar(); resetCurrentLap(); e.
 
 // ====================== LOOP ======================
 export let camYaw=0, lookYaw=0, last=performance.now(), acc=0;
-const qA=new THREE.Quaternion(), qB=new THREE.Quaternion(), Y=new THREE.Vector3(0,1,0), X=new THREE.Vector3(1,0,0), eye=new THREE.Vector3(), tgt=new THREE.Vector3();
+const qA=new THREE.Quaternion(), qB=new THREE.Quaternion(), Y=new THREE.Vector3(0,1,0), X=new THREE.Vector3(1,0,0), eye=new THREE.Vector3(), lookAtPt=new THREE.Vector3();
 export function frame(now){
   const fdt=Math.min(0.05,(now-last)/1000); acc+=fdt; last=now;
   const DT=1/120; while(acc>=DT){ step(DT); acc-=DT; }
@@ -601,10 +601,15 @@ export function frame(now){
     qB.setFromAxisAngle(X, 0.06); qA.multiply(qB);
     camera.quaternion.copy(qA);
   } else {
-    let d=car.psi-camYaw; d=Math.atan2(Math.sin(d),Math.cos(d)); camYaw+=d*0.064;
-    tgt.set(car.x-Math.sin(camYaw)*7.5, car.h+2.6, car.z-Math.cos(camYaw)*7.5);
-    camera.position.lerp(tgt,0.15);
-    camera.lookAt(car.x+Math.sin(car.psi)*3, car.h+0.8, car.z+Math.cos(car.psi)*3);
+    // Chase: hard-follow position (no longitudinal lerp jitter), soft-follow yaw only.
+    // Same heading for camera offset and look-at so they don't fight.
+    let d=car.psi-camYaw; d=Math.atan2(Math.sin(d),Math.cos(d));
+    const kYaw=1-Math.exp(-fdt*6.5);
+    camYaw+=d*kYaw;
+    const sx=Math.sin(camYaw), cz=Math.cos(camYaw);
+    camera.position.set(car.x-sx*7.5, car.h+2.6, car.z-cz*7.5);
+    lookAtPt.set(car.x+sx*3, car.h+0.8, car.z+cz*3);
+    camera.lookAt(lookAtPt);
   }
   hud(); drawMap(); renderer.render(scene,camera);
   requestAnimationFrame(frame);
