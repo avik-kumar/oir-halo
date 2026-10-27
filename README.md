@@ -1,59 +1,74 @@
-# FSGP 2027 Halo V1 – Track Sim
+# Ozark International Raceway Sim
 
-Browser-based minisim for the Halo V1 solar car. **This folder is the entire repository** (GitHub Pages publishes from repo root).
+Browser minisim for **Halo** (Georgia Tech Solar Racing) at Ozark International Raceway — FSGP 2027. Static HTML/JS/Three.js; no build step required for day-to-day use.
 
-## Layout
+## What you can do
 
-```
-index.html
-css/styles.css
-data/track.csv          Default track (latitude, longitude, elevation_ft)
-js/
-  main.js               Boot + track fetch
-  config.js             Vehicle & tuning defaults
-  sim.js                Scene, car, track, physics, UI
-scripts/                Local dev & optional JS rebuild
-```
+| | **Practice** | **Race** |
+|---|---|---|
+| Goal | Learn Ozark, feel the car | Put down timed laps for the boards |
+| Camera | Chase + cockpit (`C`) | Cockpit locked |
+| Map / tuning | Yes (`T`) | Hidden — race pack locked |
+| Leaderboard | No | Best valid lap per username |
+
+From the menu: **Practice**, **Race** (enter a username), or **Leaderboards**. Hover the **ⓘ** for a short rules welcome.
+
+## How a race session works
+
+1. Enter a username and start. You’re in the cockpit on Ozark.
+2. Cross the yellow start/finish to **start** the clock; next S/F **finishes** the lap. No warmup required.
+3. A lap is **valid** only if you stay on track and never reach **65 mph** (FSGP).
+4. The HUD shows current lap, **Last**, and **Best** for the session.
+5. **`R`** resets only the current attempt (car + in-progress lap). Session best/last stay until you leave.
+6. **Save laps & quit** submits your session **best** valid lap, then shows Pace / Efficiency place.
+
+## Leaderboards
+
+One shared log of submitted laps. The UI shows **best per name** on two boards:
+
+- **Pace** — lowest valid lap time  
+- **Efficiency** — lowest Wh among valid laps with average speed ≥ **35 mph** (FSGP efficiency gate)
+
+Submitting a faster Pace lap does **not** overwrite your Efficiency best (and vice versa). Both historical rows stay in storage; each board picks its own best.
+
+**Storage:** race quit has the **player’s browser** POST to the shared Google Apps Script web app (`js/leaderboard-config.js` → Sheet). That URL is committed so GitHub Pages and local serve hit the same board. Access is “Anyone” (no token). If `LEADERBOARD_URL` were empty, submits would fall back to **localStorage** only.
+
+## Driving & energy
+
+- **↑** throttle · **↓** friction brake · **←/→** steer  
+- Lift throttle = **auto regen** (charges the pack). Friction brake dumps heat — no regen while braking.  
+- Practice: **`T`** opens map + **experimental** tunable params (mass, motors, tire grip μ, tire stiffness, irradiance, etc.). Race mode ignores those and uses the fixed Halo race pack.
+
+## Track & car pack
+
+- Track: Ozark International Raceway (`data/track.csv`).  
+- Race defaults (locked in Race): mass **315 kg**, **1.8 kW × 2** motors, μ **0.95**, etc. (`js/config.js`).
 
 ## Local preview
-
-Requires a static HTTP server (ES modules + `fetch` for the CSV).
 
 ```bash
 npm run serve
 ```
 
-Open [http://localhost:8080](http://localhost:8080).  
-PowerShell: `.\scripts\serve.ps1`
+Open [http://localhost:8080](http://localhost:8080).
 
-## GitHub Pages
+## Repo layout
 
-1. Push **this folder’s contents** as the repo root (`index.html` at top level).
-2. **Settings → Pages → Build and deployment → Source:** choose **GitHub Actions** (not “Deploy from a branch”). Save if prompted.
-3. Push to `main` / `master`, or run **Actions → Deploy GitHub Pages → Run workflow**.
-
-Site URL: `https://<user>.github.io/<repo>/`
-
-### Deploy failed with `404` / “Failed to create deployment”
-
-That almost always means **Pages is not fully enabled** for the repo yet (the artifact upload can still succeed).
-
-1. Open **Settings → Pages** for the repo.
-2. Under **Build and deployment**, set **Source** to **GitHub Actions** and save.
-3. If **Source** was “Deploy from a branch”, switch to **GitHub Actions**, save, wait a minute, then **re-run** the failed workflow (or push an empty commit).
-4. Repo must be **public**, or **private with GitHub Pro/Team** and Pages enabled for private repos.
-5. For org-owned repos, an org admin may need to allow **Pages** under organization settings.
-
-After a successful run, the Pages URL appears at the top of **Settings → Pages**.
-
-## Track CSV
-
-Edit or replace `data/track.csv`. Columns: `latitude`, `longitude`, and `elevation_ft` (or `elevation_raw_ft`). You can also drag-and-drop a CSV onto the page.
-
-## Regenerating `sim.js` (optional)
-
-If you inline script into HTML again for a one-off edit:
-
-```bash
-npm run build:js
+```
+index.html              Menu, HUD, boards UI
+css/styles.css
+data/track.csv          Ozark centerline
+data/tracks.json        Track catalog
+js/
+  main.js               Boot
+  config.js             Car / race pack / FSGP thresholds
+  sim.js                Physics, rendering, controls
+  mode.js               Practice / race / quit / boards
+  race.js               Lap validity & session best/last
+  tracks.js             Track loading
+  leaderboard.js        Fetch / submit / best-per-name
+  leaderboard-config.js Shared Sheet web-app URL (tracked)
+scripts/
+  apps-script-leaderboard.js
+  serve.ps1 / serve.sh
 ```
