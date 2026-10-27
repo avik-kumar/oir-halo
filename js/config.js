@@ -1,5 +1,5 @@
-/** @typedef {typeof import('./config.js')} Config */
-export const TRACK_CSV = 'data/track.csv';
+/** Absolute URL so GitHub Pages project sites still find the CSV without a trailing slash. */
+export const TRACK_CSV = new URL('../data/track.csv', import.meta.url).href;
 export const TRACK_LABEL_DEFAULT = 'Ozark International Raceway';
 export const TRACK_WIDTH = 12;
 export const RULES_MAX_MPH = 65;

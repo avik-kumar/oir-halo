@@ -11,6 +11,7 @@ export let RAWLABEL = '';
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
 renderer.setSize(innerWidth, innerHeight);
+renderer.domElement.id = 'view';
 document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x9cc4e4);
@@ -150,8 +151,8 @@ function buildFromXYZ(X, Z, Y){
 }
 
 function parseCSV(text){
-  const L = text.trim().split(/\r?\n/);
-  const h = L[0].split(',').map(s=>s.trim().toLowerCase());
+  const L = text.replace(/^[`'"]+|[`'"]+$/g,'').trim().split(/\r?\n/);
+  const h = L[0].replace(/^[`'"]+|[`'"]+$/g,'').split(',').map(s=>s.trim().toLowerCase());
   const iLat=h.indexOf('latitude'), iLon=h.indexOf('longitude');
   let iE=h.indexOf('elevation_ft'); if(iE<0) iE=h.indexOf('elevation_raw_ft');
   if(iLat<0||iLon<0) throw new Error('CSV needs latitude and longitude columns');
