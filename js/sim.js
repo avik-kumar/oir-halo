@@ -1,7 +1,27 @@
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
 import {
-  TRACK_WIDTH, RULES_MAX_MPH, G, CAR, P, DEFAULTS, SP,
+  TRACK_WIDTH, RULES_MAX_MPH, G, CAR, P, DEFAULTS, SP, RACE_DEFAULTS,
 } from './config.js';
+
+/** Optional race-mode hooks set by js/race.js */
+export let raceHooks = {
+  onCrossLine: null,
+  onStep: null,
+  onReset: null,
+  suppressPracticeLaps: false,
+  lockCameraKeys: false,
+  /** Menu / race-lobby: ignore drive + hotkeys (C/T/R). */
+  blockKeys: false,
+  hudExtra: null,
+};
+
+export function setRaceHooks(h) {
+  Object.assign(raceHooks, h || {});
+}
+
+export function applyRacePack() {
+  Object.assign(P, RACE_DEFAULTS);
+}
 
 export let T = null;
 export let trackGroup = null;
@@ -79,10 +99,13 @@ function loftBody(){
   // cockpit on the RIGHT (-x): glass bubble, roll hoop, helmet. Cells cover the rest of the top.
   const H=bodyH(0.1)+0.02;
   const bub=new THREE.Mesh(new THREE.SphereGeometry(1,18,10,0,Math.PI*2,0,Math.PI/2),
-    new THREE.MeshPhongMaterial({color:0x1d2a38,transparent:true,opacity:0.55,shininess:120,specular:0xaaccff,side:THREE.DoubleSide}));
+    new THREE.MeshPhongMaterial({color:0x1d2a38,transparent:true,opacity:0.45,shininess:120,specular:0xaaccff,side:THREE.DoubleSide,depthWrite:false}));
   bub.scale.set(0.2,0.25,0.62); bub.position.set(-0.4,H,0.15); car3d.add(bub);
   const hoop=new THREE.Mesh(new THREE.TorusGeometry(0.2,0.018,6,16,Math.PI),ph(0x8a8f98,80)); hoop.position.set(-0.4,H-0.02,-0.4); car3d.add(hoop);
   const helmet=new THREE.Mesh(new THREE.SphereGeometry(0.09,12,10),ph(0xf2c230,80)); helmet.position.set(-0.4,H+0.1,0.05); car3d.add(helmet);
+  car3d.userData.helmet=helmet;
+  // Eyes at yellow helmet: above solar deck (H), inside canopy bubble
+  car3d.userData.cockpitEye=new THREE.Vector3(-0.4, H+0.1, 0.05);
 
   // wheels, inset under the body, same track front and rear
   const tireM=new THREE.MeshLambertMaterial({color:0x151515}), hubM=ph(0xc4c8d0,90);
@@ -340,15 +363,18 @@ function sample(px, pz, guess){
 }
 
 // ====================== CAR / PHYSICS ======================
-const car = {x:0,z:0,psi:0,u:0,v:0,r:0,steer:0,sin:0,thr:0,h:0,idx:0,ax:0,ay:0,slope:0,off:false,
-             E:CAR.capWh, Pbatt:0, Psolar:0};
-function resetCar(){
+export const car = {x:0,z:0,psi:0,u:0,v:0,r:0,steer:0,sin:0,thr:0,h:0,idx:0,ax:0,ay:0,slope:0,off:false,
+             E:CAR.capWh, Pbatt:0, Psolar:0, Pregen:0};
+export function resetCar(){
   const i=T.N-6;
   car.x=T.x[i]; car.z=T.z[i]; car.psi=Math.atan2(T.tx[i],T.tz[i]);
-  car.u=car.v=car.r=car.steer=car.sin=car.thr=car.wheelAngle=car.ax=car.ay=car.slope=0; car.idx=i; car.h=T.y[i]; car.off=false;
+  car.u=car.v=car.r=car.steer=car.sin=car.thr=car.wheelAngle=car.ax=car.ay=car.slope=0;
+  car.Pregen=0; car.idx=i; car.h=T.y[i]; car.off=false; car.E=CAR.capWh;
   camYaw=car.psi;
 }
+
 const keys={up:0,down:0,left:0,right:0};
+export function clearDriveKeys(){ keys.up=keys.down=keys.left=keys.right=0; }
 
 function tire(y){ return Math.sin(CAR.C*Math.atan(y-CAR.E*(y-Math.atan(y)))); }
 
@@ -364,12 +390,13 @@ function step(dt){
   car.wheelAngle=car.sin*0.38;
   const smax=Math.min(0.4, 0.95*CAR.L*mu*G/(u*u+36));
   car.steer=car.sin*smax;
-  car.thr += (keys.up-car.thr)*Math.min(1,dt*4.5);
+  // Pedal: held = drive; released = auto regen (cut while friction braking)
+  if(keys.up) car.thr=Math.min(1, car.thr+dt*8);
+  else car.thr=0;
   const st=car.steer;
   const latScale=(u*u)/(u*u+49);
 
   const down=CAR.downC*u*u+CAR.downD*Math.abs(u), W=m*G*Math.cos(Math.atan(car.slope))+down;
-  // half-strength load transfer: braking no longer unloads the rear enough to snap it loose
   let Fzf=W*P.wf - 0.5*m*car.ax*CAR.h/L, Fzr=W*(1-P.wf) + 0.5*m*car.ax*CAR.h/L;
   const mn=0.1*m*G/2; Fzf=Math.max(mn,Fzf); Fzr=Math.max(mn,Fzr);
 
@@ -378,11 +405,19 @@ function step(dt){
 
   const Pw=P.motorKW*P.motors*1000*CAR.motorEff;
   const uMot=Math.max(u,1.8);
-  let Fx=car.thr*Math.min(Pw/uMot, 1e5);
-  Fx=Math.min(Fx, mu*Fzr);
+  let Fx=0, Fregen=0, PregenIn=0;
+  if(car.thr>0){
+    Fx=car.thr*Math.min(Pw/uMot, 1e5);
+    Fx=Math.min(Fx, mu*Fzr);
+  } else if(!keys.down && u>CAR.regenUMin){
+    const PregenCap=P.motorKW*P.motors*1000*CAR.regenPowerFrac;
+    Fregen=Math.min(PregenCap/u, mu*Fzr*0.9);
+    PregenIn=Fregen*u*CAR.regenEff;
+  }
 
-  const rb=keys.down?1.15:CAR.rearBias;     // rear stays stable under braking
-  const FyrMax=Math.sqrt(Math.max(0,(mu*Fzr)**2-Fx*Fx))*gs*rb, FyfMax=mu*Fzf*gs;
+  const FxTire=Math.abs(Fx)+Fregen;
+  const rb=keys.down?1.15:CAR.rearBias;
+  const FyrMax=Math.sqrt(Math.max(0,(mu*Fzr)**2-FxTire*FxTire))*gs*rb, FyfMax=mu*Fzf*gs;
   const vx=Math.abs(u)+2.5;
   const af=Math.atan2(v+a*r,vx)-st, ar=Math.atan2(v-b*r,vx);
   const Fyf=-FyfMax*tire(P.B*0.82*af)*latScale;
@@ -392,7 +427,7 @@ function step(dt){
   const crr=CAR.Crr0+CAR.Crr1*u+CAR.Crr2*u*u+(car.off?0.06:0);
   const drag=(aeroDrag+crr*W)*Math.sign(u);
 
-  const Ftot=Fx-Fb-drag-Fyf*Math.sin(st);
+  const Ftot=Fx-Fregen-Fb-drag-Fyf*Math.sin(st);
   car.ax += (Ftot/m-car.ax)*Math.min(1,dt*6);
   car.ay = (Fyf*Math.cos(st)+Fyr)/m;
   u+=(Ftot/m+v*r)*dt;
@@ -426,21 +461,29 @@ function step(dt){
   car.u=u; car.v=v; car.r=r;
 
   const Pmot=Math.max(0,Fx*u)/CAR.motorEff;
+  car.Pregen=PregenIn;
   car.Psolar=P.irr*CAR.area*CAR.cellEff*CAR.mppt;
-  const Pnet=Pmot+CAR.auxW/CAR.vicor-car.Psolar;
+  const Pnet=Pmot-PregenIn+CAR.auxW/CAR.vicor-car.Psolar;
   const I=Pnet/CAR.Vpack, loss=I*I*(CAR.Rint+CAR.Rharn);
   car.Pbatt=Pnet+loss;
   car.E=Math.min(CAR.capWh, Math.max(0, car.E-car.Pbatt*dt/3600));
 
   const prev=car.idx; car.idx=s2.idx;
   if(simT>0||u>0.5) simT+=dt;
-  if(prev>T.N*0.75 && car.idx<T.N*0.25) crossLine();
+  if(prev>T.N*0.75 && car.idx<T.N*0.25){
+    if(raceHooks.onCrossLine) raceHooks.onCrossLine();
+    if(!raceHooks.suppressPracticeLaps) crossLine();
+  }
   if(car.idx>T.N*0.4 && car.idx<T.N*0.6) halfway=true;
+  if(raceHooks.onStep) raceHooks.onStep(dt);
 }
 
 // ====================== LAPS / HUD ======================
 export let simT=0, lapStart=null, halfway=false, lastLap=null, bestLap=null, lapCount=0;
+/** Full history wipe (track load / new session). */
 function resetLaps(){ simT=0; lapStart=null; halfway=false; lastLap=null; bestLap=null; lapCount=0; car.E=CAR.capWh; }
+/** Abort only the lap in progress — keeps last/best/count. */
+function resetCurrentLap(){ lapStart=null; halfway=false; car.E=CAR.capWh; }
 function crossLine(){
   if(lapStart!==null && halfway){
     lastLap=simT-lapStart; lapCount++;
@@ -448,23 +491,33 @@ function crossLine(){
   }
   lapStart=simT; halfway=false;
 }
-const fmt=t=>t==null?'–':Math.floor(t/60)+':'+(t%60).toFixed(3).padStart(6,'0');
-function hud(){
+export const fmt=t=>t==null?'–':Math.floor(t/60)+':'+(t%60).toFixed(3).padStart(6,'0');
+export function hud(){
   const mph=Math.round(car.u*2.23694);
   const spEl=document.getElementById('speed');
   spEl.textContent=mph+' mph';
-  spEl.classList.toggle('over', mph>RULES_MAX_MPH);
+  spEl.classList.toggle('over', mph>=RULES_MAX_MPH);
+  if(raceHooks.hudExtra){
+    document.getElementById('laps').innerHTML=raceHooks.hudExtra();
+    return;
+  }
   document.getElementById('laps').innerHTML=
     'Lap '+(lapCount+1)+' · '+fmt(lapStart===null?0:simT-lapStart)+'<br>Last '+fmt(lastLap)+' · Best '+fmt(bestLap)+
     '<br>SOC '+(car.E/CAR.capWh*100).toFixed(1)+'% · batt '+Math.round(car.Pbatt)+' W · solar '+Math.round(car.Psolar)+' W'+
+    (car.Pregen>1?' · regen '+Math.round(car.Pregen)+' W':'')+
     (car.off?'<br><span style="color:#ffb">off track</span>':'');
 }
 
 // ====================== INPUT / UI ======================
 export let camMode=0;
 function setCam(m){
-  camMode=m; car3d.visible=(m===0); shadow.visible=(m===0);
-  camera.fov=m?80:65; camera.updateProjectionMatrix();
+  camMode=m;
+  // Stay inside the car: keep body/array visible; only hide third-person bits
+  car3d.visible=true;
+  shadow.visible=(m===0);
+  if(car3d.userData.helmet) car3d.userData.helmet.visible=(m===0);
+  camera.near=m?0.05:0.2;
+  camera.fov=m?85:65; camera.updateProjectionMatrix();
   document.getElementById('dash').style.display=m?'block':'none';
 }
 export function setTune(open){
@@ -472,17 +525,41 @@ export function setTune(open){
   document.getElementById('topen').style.display=open?'none':'block';
   document.getElementById('mapwrap').style.display=open?'none':'block';
 }
+export function refreshSliders(){
+  const box=document.getElementById('sliders');
+  if(!box) return;
+  [...box.children].forEach(r=>{ if(r._show) r._show(); });
+}
+
 export function bindUI(){
 const KM={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right'};
+const typingTarget=el=>{
+  if(!el||el===document.body) return false;
+  const t=el.tagName;
+  return t==='INPUT'||t==='TEXTAREA'||t==='SELECT'||el.isContentEditable;
+};
 addEventListener('keydown',e=>{
+  if(typingTarget(e.target)) return;
+  if(raceHooks.blockKeys) return;
   const k=KM[e.key]; if(k){ keys[k]=1; e.preventDefault(); }
   if(e.repeat) return;
   const c=e.key.toLowerCase();
-  if(c==='r') resetCar();
+  if(c==='r'){
+    if(raceHooks.onReset) raceHooks.onReset();
+    else { resetCar(); resetCurrentLap(); }
+  }
+  if(raceHooks.lockCameraKeys) return;
   if(c==='c') setCam(1-camMode);
   if(c==='t') setTune(document.getElementById('tune').style.display==='none');
 });
-addEventListener('keyup',e=>{ const k=KM[e.key]; if(k){ keys[k]=0; e.preventDefault(); } });
+addEventListener('keyup',e=>{
+  if(typingTarget(e.target)) return;
+  if(raceHooks.blockKeys){
+    keys.up=keys.down=keys.left=keys.right=0;
+    return;
+  }
+  const k=KM[e.key]; if(k){ keys[k]=0; e.preventDefault(); }
+});
 document.getElementById('tclose').onclick=()=>setTune(false);
 document.getElementById('topen').onclick=e=>{ setTune(true); e.target.blur(); };
 
@@ -496,18 +573,13 @@ SP.forEach(([key,label,min,max,stp])=>{
   inp.addEventListener('change',()=>{ inp.blur(); if(key==='elev'&&RAW) loadRaw(RAW,RAWLABEL); });
   row._show=show; show(); box.appendChild(row);
 });
-document.getElementById('resetp').onclick=e=>{ Object.assign(P,DEFAULTS); [...box.children].forEach(r=>r._show()); e.target.blur(); };
-document.getElementById('resetb').onclick=e=>{ resetLaps(); e.target.blur(); };
-addEventListener('dragover',e=>e.preventDefault());
-addEventListener('drop',e=>{
-  e.preventDefault(); const f=e.dataTransfer.files[0]; if(!f) return;
-  f.text().then(t=>{ try{ loadRaw(parseCSV(t), f.name); }catch(err){ alert(err.message); } });
-});
+document.getElementById('resetp').onclick=e=>{ Object.assign(P,DEFAULTS); refreshSliders(); e.target.blur(); };
+document.getElementById('resetb').onclick=e=>{ resetCar(); resetCurrentLap(); e.target.blur(); };
 }
 
 // ====================== LOOP ======================
 export let camYaw=0, lookYaw=0, last=performance.now(), acc=0;
-const qA=new THREE.Quaternion(), qB=new THREE.Quaternion(), Y=new THREE.Vector3(0,1,0), eye=new THREE.Vector3(), tgt=new THREE.Vector3();
+const qA=new THREE.Quaternion(), qB=new THREE.Quaternion(), Y=new THREE.Vector3(0,1,0), X=new THREE.Vector3(1,0,0), eye=new THREE.Vector3(), tgt=new THREE.Vector3();
 export function frame(now){
   const fdt=Math.min(0.05,(now-last)/1000); acc+=fdt; last=now;
   const DT=1/120; while(acc>=DT){ step(DT); acc-=DT; }
@@ -519,11 +591,14 @@ export function frame(now){
   shadow.position.set(car.x,car.h+0.085,car.z); shadow.rotation.set(-Math.atan(car.slope),car.psi,0);
   car3d.updateMatrixWorld(true);
   if(camMode===1){
-    eye.set(0,0.72,0.4); car3d.localToWorld(eye); camera.position.copy(eye);
+    // Low seat inside offset cockpit — deck/array sits ahead in the upper FOV
+    eye.copy(car3d.userData.cockpitEye); car3d.localToWorld(eye); camera.position.copy(eye);
     car3d.getWorldQuaternion(qA);
-    lookYaw+=(Math.max(-0.4,Math.min(0.4,car.r*0.5))-lookYaw)*0.12;
+    lookYaw+=(Math.max(-0.35,Math.min(0.35,car.r*0.45))-lookYaw)*0.12;
     qB.setFromAxisAngle(Y, lookYaw); qA.multiply(qB);
     qB.setFromAxisAngle(Y, Math.PI); qA.multiply(qB);
+    // slight pitch down from helmet height through the canopy
+    qB.setFromAxisAngle(X, 0.06); qA.multiply(qB);
     camera.quaternion.copy(qA);
   } else {
     let d=car.psi-camYaw; d=Math.atan2(Math.sin(d),Math.cos(d)); camYaw+=d*0.064;
@@ -539,5 +614,5 @@ export function frame(now){
 export {
   renderer, scene, camera, car3d, carFrontWheels, carSpin, shadow,
   smooth, buildFromXYZ, parseCSV, mockOval, loadRaw, setTrack, sample,
-  resetCar, step, resetLaps, crossLine, hud, setCam, buildMap, drawMap,
+  step, resetLaps, resetCurrentLap, crossLine, buildMap, drawMap, setCam,
 };

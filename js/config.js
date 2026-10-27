@@ -1,9 +1,13 @@
-/** Absolute URL so GitHub Pages project sites still find the CSV without a trailing slash. */
+/** Absolute URL so GitHub Pages project sites still find assets without a trailing slash. */
 export const TRACK_CSV = new URL('../data/track.csv', import.meta.url).href;
+export const TRACKS_JSON = new URL('../data/tracks.json', import.meta.url).href;
 export const TRACK_LABEL_DEFAULT = 'Ozark International Raceway';
 export const TRACK_WIDTH = 12;
 export const RULES_MAX_MPH = 65;
+export const EFF_MIN_AVG_MPH = 35;
 export const G = 9.8;
+export const SIM_VERSION = '1.1.0';
+export const PACK_ID = 'halo-v1-r1';
 
 export const CAR = {
   Crr0: 0.002013333, Crr1: 5.04e-6, Crr2: 1.1232e-6,
@@ -13,9 +17,18 @@ export const CAR = {
   capWh: 5200, Rint: 0.0174 * (36 / 18) / (10 / 64), Rharn: 0.3, Vpack: 3.6 * 36,
   motorEff: 0.92, cellEff: 0.254, mppt: 0.90, area: 6,
   L: 2.6, h: 0.35, C: 1.45, E: -1.75, rearBias: 1.08,
+  /** Regen when throttle released (cut while friction braking). */
+  regenPowerFrac: 0.45,
+  regenEff: 0.80,
+  regenUMin: 1.5,
 };
 
-export const DEFAULTS = { mass: 315, motorKW: 1.8, motors: 2, mu: 0.95, wf: 0.48, B: 9, irr: 750, elev: 1 };
+/** Official race pack — locked when entering Race mode. */
+export const RACE_DEFAULTS = {
+  mass: 315, motorKW: 1.8, motors: 2, mu: 0.95, wf: 0.48, B: 9, irr: 750, elev: 1,
+};
+
+export const DEFAULTS = { ...RACE_DEFAULTS };
 export const P = { ...DEFAULTS };
 export const SP = [
   ['mass', 'Mass (kg)', 200, 500, 5],
@@ -27,3 +40,8 @@ export const SP = [
   ['irr', 'Irradiance (W/m²)', 0, 1000, 25],
   ['elev', 'Terrain scale (rebuilds)', 0, 1.5, 0.1],
 ];
+
+/** Max lap time (s) for efficiency eligibility given track length in meters. */
+export function efficiencyMaxLapSec(trackLenM) {
+  return trackLenM / (EFF_MIN_AVG_MPH * 0.44704);
+}
